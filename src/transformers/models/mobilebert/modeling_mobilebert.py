@@ -898,6 +898,7 @@ class MobileBertModel(MobileBertPreTrainedModel):
         self,
         input_ids: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
+        attention_mask_prefix_lens: Optional[torch.IntTensor] = None,
         token_type_ids: Optional[torch.LongTensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
         head_mask: Optional[torch.FloatTensor] = None,
@@ -924,24 +925,6 @@ class MobileBertModel(MobileBertPreTrainedModel):
 
         device = input_ids.device if input_ids is not None else inputs_embeds.device
 
-        if attention_mask is None:
-            attention_mask = torch.ones(input_shape, device=device)
-        if token_type_ids is None:
-            token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
-
-        # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
-        # ourselves in which case we just need to make it broadcastable to all heads.
-        extended_attention_mask: torch.Tensor = self.get_extended_attention_mask(attention_mask, input_shape)
-        new_shape = (
-            extended_attention_mask.shape[0],
-            self.config.num_attention_heads,
-            extended_attention_mask.shape[3],
-            extended_attention_mask.shape[3],
-        )
-        extended_attention_mask = extended_attention_mask.broadcast_to(new_shape)
-        print(extended_attention_mask.shape)
-        attention_mask_prefix_lens = torch.sum(attention_mask, dim=-1, keepdim=False).to(torch.int32)
-
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
         # attention_probs has shape bsz x n_heads x N x N
@@ -955,7 +938,7 @@ class MobileBertModel(MobileBertPreTrainedModel):
         encoder_outputs = self.encoder(
             embedding_output,
             attention_mask_prefix_lens=attention_mask_prefix_lens,
-            attention_mask=extended_attention_mask,
+            attention_mask=None,
             head_mask=head_mask,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -1423,6 +1406,7 @@ class MobileBertForQuestionAnswering(MobileBertPreTrainedModel):
         self,
         input_ids: Optional[torch.Tensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
+        attention_mask_prefix_lens: Optional[torch.IntTensor] = None,
         token_type_ids: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
@@ -1448,6 +1432,7 @@ class MobileBertForQuestionAnswering(MobileBertPreTrainedModel):
         outputs = self.mobilebert(
             input_ids,
             attention_mask=attention_mask,
+            attention_mask_prefix_lens=attention_mask_prefix_lens,
             token_type_ids=token_type_ids,
             position_ids=position_ids,
             head_mask=head_mask,
